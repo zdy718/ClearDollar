@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # BudgetAppCSCE361
 AI-Powered Budgeting App
 
