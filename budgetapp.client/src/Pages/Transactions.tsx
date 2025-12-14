@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Navbar } from "../Components/Navbar";
+import { FileUploader } from "../Components/FileUpload"
 
 export function TransactionsPage() {
     const [transactions, setTransactions] = useState();
@@ -39,8 +40,9 @@ export function TransactionsPage() {
     return (
         <>
             <Navbar />
+            
             <div className="flex items-center justify-center gap-4 my-2">
-                <button className="px-3 py-1.5 border rounded-lg hover:bg-gray-50">Import CSV</button>
+                <FileUploader />
                 <button className="px-3 py-1.5 border rounded-lg hover:bg-gray-50">Connect Bank</button>
             </div>
             <div className="container">

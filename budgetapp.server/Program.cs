@@ -1,3 +1,4 @@
+using budgetapp.server.Engines;
 using BudgetApp.Server.Accessors;
 using BudgetApp.Server.Data; // Add this namespace
 using Microsoft.EntityFrameworkCore; // Add this namespace
@@ -20,6 +21,9 @@ namespace BudgetApp.Server
             // Note: DB services usually use AddScoped, not AddSingleton
             builder.Services.AddScoped<ITagAccessor, SqlTagAccessor>();
             builder.Services.AddScoped<ITransactionAccessor, SqlTransactionAccessor>();
+
+            // Register the TransactionEngine so it can be injected into controllers
+            builder.Services.AddScoped<TransactionEngine>();
 
             var app = builder.Build();
 
