@@ -1,4 +1,5 @@
 # ClearDollar
+
 AI-Powered Budgeting App
 
 A modern, secure, and intelligent platform for managing personal finances with unprecedented detail and visualization.
@@ -55,19 +56,19 @@ Technology / Service
 
 Purpose
 
-# Frontend
+### Frontend
 
 React
 
 Highly interactive and responsive user interface.
 
-# Backend
+### Backend
 
 C#.Net
 
 Business logic, API handling, and AI integration.
 
-# Database
+### Database
 
 Microsoft SQL
 
@@ -89,12 +90,40 @@ Transaction parsing and automated tagging suggestions.
 
 All user transactions, custom tags, budget allocations, and automation rules are stored securely in a database, ensuring that all financial data and configuration persist across sessions.
 
-🚀 Getting Started
+# Database Installation
 
-Prerequisites: (To be defined)
+A local database needs to be installed before the project can be run.
 
-Installation: (To be defined)
-=======
+1. Create a local SQL Server Database using the terminal
+
+```console
+sqllocaldb create "BudgetApp"
+```
+
+2. Connect to the database with SQL Server Management Studio
+
+![alt text](./screenshots/connect.png)
+
+3. Create a database named "BudgetApp"
+
+![alt text](./screenshots/database.png)
+
+4. Open and execute [CreateTables.qsl](./sql/CreateTables.sql) in SQL Server Management Studio to setup the needed tables.
+5. Open and execute [DummyData.qsl](./sql/DummyData.sql) to fill out some demo data for userId `demo-user`
+
+# Running the project
+
+After installing the databse, the project can be run as follows
+
+1. Run the project with the following commands
+
+```console
+cd .\budgetapp.server
+dotnet run
+```
+
+2. Open the app in the browser [https://localhost:59946/](https://localhost:59946/)
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
@@ -168,4 +197,5 @@ export default defineConfig([
   },
 ])
 ```
+
 >>>>>>> master
