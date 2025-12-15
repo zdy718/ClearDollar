@@ -1,94 +1,142 @@
 # ClearDollar
 
-AI-Powered Budgeting App
+**ClearDollar** is a modern, full-stack personal finance application designed to give users granular control over their budget. It features a hierarchical tagging system, interactive visualizations, and transaction management capabilities, built with **ASP.NET Core 9** and **React**.
 
-A modern, secure, and intelligent platform for managing personal finances with unprecedented detail and visualization.
+## Key Features
 
-💡 Overview
+### 1\. Interactive Dashboard
 
-An online budgeting application designed for users who need more control and deeper insight into their spending than standard budgeting tools offer. By combining secure bank account aggregation with a hierarchical, three-tier tagging system and conversational AI automation, the app transforms raw transaction data into actionable, easy-to-digest financial reports.
+  * **Drill-Down Analytics:** Explore spending and income through dynamic pie charts. Click slices to drill down from Primary Categories (e.g., Food) to Secondary (e.g., Groceries) and Tertiary tags (e.g., Produce).
+  * **Budget Progress:** Visual progress bars track spending against budget limits for every category.
+  * **Dual Modes:** Toggle instantly between **Expenses** and **Income** views.
 
-✨ Key Features
+### 2\. Hierarchical Budgeting
 
-1. Secure Bank Integration
+  * **Multi-Level Tags:** Organize finances with a nested tree structure (Parent \> Child \> Grandchild).
+  * **Drag-and-Drop Management:** (Planned/Partially Implemented) Reorganize categories easily.
+  * **Validation Logic:** Backend ensures child category budgets do not exceed their parent's allocation.
 
-Seamlessly connect to thousands of financial institutions using a secure third-party service (like Plaid or Stripe Financial Connections) to import real-time transaction data.
+### 3\. Transaction Management
 
-2. Hierarchical Tagging System
+  * **CSV Import:** Bulk upload transactions via CSV files.
+  * **Manual Tagging:** Assign or reassign tags to transactions directly from the UI.
+  * **Optimistic UI:** Instant feedback when updating transaction details.
 
-Define spending with unparalleled granularity using three distinct levels of categorization:
+### 4\. User Data Isolation
 
-Primary Tags: (e.g., Housing, Food, Entertainment)
+  * Supports multi-user data isolation (keyed by `UserId`).
+  * Includes a "Demo User" mode for quick testing.
 
-Secondary Tags: (e.g., Food > Groceries, Food > Restaurants)
+-----
 
-Tertiary Tags: (e.g., Groceries > Produce, Restaurants > Fine Dining)
-
-3. AI-Powered Transaction Automation
-
-Reduce manual effort with smart tagging assistance:
-
-Conversational AI/MCP Server: Automatically suggests and applies the appropriate Primary, Secondary, and Tertiary tags based on transaction history and context.
-
-Optional Approval: Users can opt for an approval flow for each automated tag, ensuring complete control before a transaction is finalized.
-
-4. Real-Time Budgeting & Tracking
-
-Create a monthly budget by assigning dollar limits to any custom tag you create.
-
-Progress Visualization: View intuitive loading bar UI elements for every Primary Tag, showing the remaining budget percentage and current spending amount for the month.
-
-5. Multi-Level Drill-Down Analytics
-
-Gain deep insights through dynamic visualizations:
-
-A primary Pie Chart displays the spending ratio across all Primary Tags.
-
-Clicking a slice instantly reveals a secondary pie chart detailing the spending ratios of the Secondary Tags within that category.
-
-A subsequent click on the second pie drill-downs to the Tertiary Tag spending breakdown.
-
-🛠️ Technology Stack (Planned)
-
-Component
-
-Technology / Service
-
-Purpose
+## Technology Stack
 
 ### Frontend
 
-React
-
-Highly interactive and responsive user interface.
+  * **Framework:** React 19 + TypeScript
+  * **Build Tool:** Vite
+  * **Styling:** Tailwind CSS
+  * **Charts:** Recharts
+  * **Routing:** React Router DOM
 
 ### Backend
 
-C#.Net
-
-Business logic, API handling, and AI integration.
+  * **Framework:** ASP.NET Core 9.0 Web API
+  * **ORM:** Entity Framework Core (SQL Server)
+  * **Language:** C\#
+  * **API Testing:** `.http` files included
 
 ### Database
 
-Microsoft SQL
+  * **Engine:** Microsoft SQL Server
+  * **Schema:** Relational tables for `Tags` and `Transactions` with foreign key constraints.
 
-Persistent, scalable storage for user transactions and custom tags.
+-----
 
-Banking API
+## Setup & Installation
 
-Plaid / Stripe
+Follow these steps to run the application locally.
 
-Securely connect and access bank transaction data.
+### Prerequisites
 
-AI/ML
+  * [.NET 9.0 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
+  * [Node.js](https://nodejs.org/) (Latest LTS recommended)
+  * [SQL Server](https://www.microsoft.com/en-us/sql-server/sql-server-downloads) (LocalDB or Express)
 
-Custom model or External Service
+### 1\. Database Setup
 
-Transaction parsing and automated tagging suggestions.
+1.  **Create the Database:**
+    Open a terminal and create a LocalDB instance (or use SSMS to create a DB named `BudgetApp`).
 
-🔒 Data Persistence
+    ```bash
+    sqllocaldb create "BudgetApp"
+    ```
 
-All user transactions, custom tags, budget allocations, and automation rules are stored securely in a database, ensuring that all financial data and configuration persist across sessions.
+2.  **Initialize Schema & Data:**
+    Use SQL Server Management Studio (SSMS) or Azure Data Studio to connect to `(localdb)\BudgetApp`.
+
+      * Execute `sql/CreateTables.sql` to create the table structure.
+      * Execute `sql/DummyData.sql` to seed the database with demo data for `demo-user`.
+
+### 2\. Backend Setup (`budgetapp.server`)
+
+1.  Navigate to the server directory:
+    ```bash
+    cd budgetapp.server
+    ```
+2.  Review `appsettings.json` to ensure the connection string matches your local SQL instance.
+    ```json
+    "ConnectionStrings": {
+      "WindowsConnection": "Server=(localdb)\\BudgetApp;Database=BudgetApp;Trusted_Connection=True;TrustServerCertificate=True;"
+    }
+    ```
+3.  Run the server:
+    ```bash
+    dotnet run
+    ```
+    The backend will start (typically on `https://localhost:7038` or `http://localhost:5101`).
+
+### 3\. Frontend Setup (`budgetapp.client`)
+
+1.  Navigate to the client directory:
+
+    ```bash
+    cd budgetapp.client
+    ```
+
+2.  Install dependencies:
+
+    ```bash
+    npm install
+    ```
+
+3.  Start the development server:
+
+    ```bash
+    npm run dev
+    ```
+
+    Vite will proxy API requests (like `/transactions`) to the running .NET backend.
+
+4.  Open your browser to the URL shown in the terminal (usually `https://localhost:59946`).
+
+-----
+
+## 📖 Usage Guide
+
+1.  **Login:** Upon opening the app, enter a User ID (use `demo-user` to see the seeded data).
+2.  **Dashboard:** View your financial health. Toggle between "Income" and "Expenses" to see different breakdowns. Click pie slices to drill down into specific categories.
+3.  **Budget Page:** Create new tags, edit budget amounts, and organize your category hierarchy.
+4.  **Transactions Page:** View all individual transactions. Use the **Import CSV** button to upload new data.
+      * *CSV Format Expected:* `Date (MM/dd/yyyy), Amount, Unused, Unused, MerchantDetails`
+
+-----
+
+## 🔮 Roadmap
+
+  * **Bank API Integration:** Replace manual CSV uploads with direct connections via Plaid/Stripe.
+  * **AI Auto-Tagging:** Integrate LLM logic to automatically suggest tags for imported transactions based on merchant names.
+  * **Authentication:** Replace the current simple ID system with robust Identity/OAuth implementation.
 
 # Database Installation
 
