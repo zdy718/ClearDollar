@@ -122,7 +122,7 @@ Follow these steps to run the application locally.
 
 -----
 
-## 📖 Usage Guide
+## Usage Guide
 
 1.  **Login:** Upon opening the app, enter a User ID (use `demo-user` to see the seeded data).
 2.  **Dashboard:** View your financial health. Toggle between "Income" and "Expenses" to see different breakdowns. Click pie slices to drill down into specific categories.
@@ -132,11 +132,13 @@ Follow these steps to run the application locally.
 
 -----
 
-## 🔮 Roadmap
+## Roadmap
 
   * **Bank API Integration:** Replace manual CSV uploads with direct connections via Plaid/Stripe.
   * **AI Auto-Tagging:** Integrate LLM logic to automatically suggest tags for imported transactions based on merchant names.
   * **Authentication:** Replace the current simple ID system with robust Identity/OAuth implementation.
+
+-----
 
 # Database Installation
 
