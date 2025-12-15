@@ -9,10 +9,10 @@ export function LoginPage() {
         e.preventDefault();
 
         const trimmed = draft.trim();
-        if (!trimmed) return;
+        const userId = trimmed || "demo-user";
 
-        localStorage.setItem("userId", trimmed);
-        navigate("/dashboard", { replace: true });
+        localStorage.setItem("userId", userId);
+        navigate("/budget", { replace: true });
     }
 
     return (
