@@ -25,7 +25,7 @@ export function FileUploader() {
         const formData = new FormData();
         formData.append("file", file);
 
-        const response = await fetch("/transactions/upload", {
+        const response = await fetch('/transactions/upload?userId=demo-user', {
             method: "POST",
             body: formData,
             // Do NOT set Content-Type when sending FormData; the browser will set the multipart boundary for you.

@@ -6,9 +6,9 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
    Utilities
 ----------------------------------------------------- */
 
-// Format currency
+// Format currency (always shows $ with sign based on number)
 const currency = (n) =>
-    n.toLocaleString(undefined, { style: "currency", currency: "USD" });
+    Number(n).toLocaleString(undefined, { style: "currency", currency: "USD" });
 
 /** Convert the flat tag list into a nested tree */
 function buildTagTree(tags) {
@@ -17,7 +17,7 @@ function buildTagTree(tags) {
     const map = new Map();
     tags.forEach((t) => map.set(t.tagId, { ...t, children: [] }));
 
-    let roots = [];
+    const roots = [];
 
     for (const tag of map.values()) {
         if (tag.parentTagId === null) {
@@ -31,15 +31,30 @@ function buildTagTree(tags) {
     return roots;
 }
 
-/** Build a direct totals map (tagId → sum of tx amounts with exactly that tagId) */
-function buildDirectTotals(transactions, tags) {
-    if (!transactions || !tags) return {};
+/**
+ * Build a direct totals map (tagId → sum of tx amounts with exactly that tagId),
+ * BUT filtered by mode:
+ * - expenses: take negative tx only, store as positive magnitude
+ * - income: take positive tx only, store as positive
+ */
+function buildDirectTotalsByMode(transactions, mode) {
+    if (!transactions) return {};
 
     const totals = {};
-
     for (const t of Object.values(transactions)) {
+        if (t?.amount == null) continue;
+
+        const amt = Number(t.amount);
+        const isExpense = amt < 0;
+        const isIncome = amt > 0;
+
+        if (mode === "expenses" && !isExpense) continue;
+        if (mode === "income" && !isIncome) continue;
+
+        const magnitude = mode === "expenses" ? Math.abs(amt) : amt;
+
         if (!t.tagId) continue;
-        totals[t.tagId] = (totals[t.tagId] || 0) + t.amount;
+        totals[t.tagId] = (totals[t.tagId] || 0) + magnitude;
     }
 
     return totals;
@@ -78,7 +93,7 @@ function getCurrentNode(tagTree, drillPath) {
 function buildBreadcrumbs(tagTree, drillPath) {
     if (!tagTree) return [{ label: "All Categories", tagId: null }];
 
-    let crumbs = [{ label: "All Categories", tagId: null }];
+    const crumbs = [{ label: "All Categories", tagId: null }];
     let nodes = tagTree;
 
     for (let i = 0; i < drillPath.length; i++) {
@@ -93,25 +108,25 @@ function buildBreadcrumbs(tagTree, drillPath) {
     return crumbs;
 }
 
-function getBarNodesForDrill(tagTree, drillPath) {
-    // Root level
-    if (!drillPath.length) return tagTree;
+/**
+ * Compute untagged total per mode:
+ * - expenses: sum abs(negative untagged)
+ * - income: sum positive untagged
+ */
+function computeUntaggedTotalByMode(transactions, mode) {
+    if (!transactions) return 0;
 
-    // Walk tree to the drill node
-    let nodes = tagTree;
-    let node = null;
+    return Object.values(transactions).reduce((sum, t) => {
+        if (t?.tagId != null) return sum;
+        const amt = Number(t.amount || 0);
 
-    for (const id of drillPath) {
-        node = nodes.find((n) => n.tagId === id);
-        if (!node) return tagTree; // fallback
-        nodes = node.children;
-    }
+        if (mode === "expenses") {
+            return amt < 0 ? sum + Math.abs(amt) : sum;
+        }
 
-    // If the node has children, return them
-    if (node.children.length > 0) return node.children;
-
-    // If no children, return just the node itself
-    return [node];
+        // income
+        return amt > 0 ? sum + amt : sum;
+    }, 0);
 }
 
 /* -----------------------------------------------------
@@ -137,28 +152,36 @@ export function Dashboard() {
     const [tags, setTags] = useState();
     const [transactions, setTransactions] = useState();
 
+    // NEW: mode toggle (no net mode)
+    const [mode, setMode] = useState("expenses"); // "expenses" | "income"
+
+    // Drilldown path (array of tagIds)
+    const [drillPath, setDrillPath] = useState([]);
+
     useEffect(() => {
         populateTags();
         populateTransactions();
     }, []);
 
+    // OPTIONAL: when switching mode, pop back to root (clean UX)
+    useEffect(() => {
+        setDrillPath([]);
+    }, [mode]);
+
     /* Build tag tree */
     const tagTree = useMemo(() => buildTagTree(tags), [tags]);
 
-    /* Direct totals: tx amounts by exact tagId */
+    /* Direct totals by mode */
+    const directTotals = useMemo(
+        () => buildDirectTotalsByMode(transactions, mode),
+        [transactions, mode]
+    );
 
-    const directTotals = useMemo(() => buildDirectTotals(transactions, tags), [transactions, tags]);
-
-    const untaggedTotal = useMemo(() => {
-        if (!transactions) return 0;
-        return Object.values(transactions).reduce(
-            (sum, t) => (t.tagId == null ? sum + t.amount : sum),
-            0
-        );
-    }, [transactions]);
-
-    /* Drilldown path (array of tagIds) */
-    const [drillPath, setDrillPath] = useState([]);
+    /* Untagged total by mode */
+    const untaggedTotal = useMemo(
+        () => computeUntaggedTotalByMode(transactions, mode),
+        [transactions, mode]
+    );
 
     /* Breadcrumbs */
     const breadcrumbs = useMemo(
@@ -181,29 +204,30 @@ export function Dashboard() {
 
         // Add child categories
         for (const child of children) {
+            const v = getTotalForNode(child, directTotals);
             items.push({
                 id: child.tagId,
                 name: child.tagName,
                 tagId: child.tagId,
-                value: getTotalForNode(child, directTotals),
-                isLeaf: !child.children?.length
+                value: v,
+                isLeaf: !child.children?.length,
             });
         }
 
-        // Add "Other" if this node has its own transactions
+        // Add "Other" if this node has its own direct transactions
         const selfDirectTotal = directTotals[currentNode.tagId] || 0;
         if (selfDirectTotal > 0) {
             items.push({
-                id: currentNode.tagId + "-other",
+                id: `${currentNode.tagId}-other`,
                 name: "Other",
-                tagId: null,        // no drill-down
+                tagId: null, // no drill-down
                 value: selfDirectTotal,
                 isLeaf: true,
-                isOther: true
+                isOther: true,
             });
         }
 
-        // 👇 Add this block for root level untagged transactions
+        // Root-level untagged bucket
         if (drillPath.length === 0 && untaggedTotal > 0) {
             items.push({
                 id: "root-other",
@@ -215,48 +239,48 @@ export function Dashboard() {
             });
         }
 
+        // OPTIONAL: remove zero slices (keeps chart clean)
+        return items.filter((x) => Number(x.value) > 0);
+    }, [currentNode, directTotals, drillPath, untaggedTotal]);
 
-        return items;
-    }, [currentNode, directTotals]);
-
-    /* Budget bars data — only top-level tags */
+    /* Budget bars data — children of current drill node */
     const barsData = useMemo(() => {
-        if (!tagTree || !directTotals || !currentNode) return [];
+        if (!tagTree || !currentNode) return [];
 
-        // Nodes = children of current drill node
         const children = currentNode.children || [];
         const items = [];
 
-        // add children
         for (const child of children) {
-            const spent = getTotalForNode(child, directTotals);
-            const budget = child.budgetAmount || 0;
+            const spentOrEarned = getTotalForNode(child, directTotals);
+            const budget = Number(child.budgetAmount || 0);
+
+            // For income mode, budget may not make semantic sense — we still display it as-is.
+            const pct = budget > 0 ? Math.min(100, (spentOrEarned / budget) * 100) : 0;
 
             items.push({
                 key: child.tagName,
-                spent,
+                spent: spentOrEarned,
                 budget,
-                pct: budget > 0 ? Math.min(100, (spent / budget) * 100) : 0,
-                remaining: budget - spent
+                pct,
+                remaining: budget - spentOrEarned,
             });
         }
 
-        // add "Other" if there are direct transactions for this node
         const selfDirectTotal = directTotals[currentNode.tagId] || 0;
         if (selfDirectTotal > 0) {
             items.push({
                 key: "Other",
                 spent: selfDirectTotal,
-                budget: 0,     // no budget
+                budget: 0,
                 pct: 0,
-                remaining: 0
+                remaining: 0,
+                isOther: true,
             });
         }
 
-        // 👇 Add UNTAgGED "Other" for root level
         if (drillPath.length === 0 && untaggedTotal > 0) {
             items.push({
-                key: "Other",
+                key: "Other (Untagged)",
                 spent: untaggedTotal,
                 budget: 0,
                 pct: 0,
@@ -265,26 +289,21 @@ export function Dashboard() {
             });
         }
 
-        return items;
-    }, [tagTree, directTotals, currentNode]);
+        return items.filter((x) => Number(x.spent) > 0 || Number(x.budget) > 0);
+    }, [tagTree, currentNode, directTotals, drillPath, untaggedTotal]);
 
     /** Click a pie slice → drill deeper */
     function onSliceClick(entry) {
         const tagId = entry?.tagId;
         if (!tagId) return;
 
-        // Find the corresponding node in the current level
-        const childNode = currentNode.children.find(c => c.tagId === tagId);
+        const childNode = currentNode.children.find((c) => c.tagId === tagId);
 
         // Do NOT drill into leaf nodes
-        if (!childNode || !childNode.children || childNode.children.length === 0) {
-            return; // ignore click
-        }
+        if (!childNode?.children?.length) return;
 
-        // Drill deeper
-        setDrillPath(path => [...path, tagId]);
+        setDrillPath((path) => [...path, tagId]);
     }
-
 
     /** Breadcrumb click */
     function goToBreadcrumb(index) {
@@ -321,100 +340,138 @@ export function Dashboard() {
             <Navbar />
 
             <div className="min-h-screen bg-gray-50">
-                <div className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-
+                <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
                     {/* ---------------------- */}
-                    {/* Budget Bars */}
-                    {/* ---------------------- */}
-                    <div className="bg-white border rounded-2xl p-4 lg:col-span-2">
-                        <div className="font-semibold mb-2">Monthly Budgets by Category</div>
-
-                        <div className="space-y-4">
-                            {!barsData.length ? (
-                                <div>Loading...</div>
-                            ) : (
-                                barsData.map(row => (
-                                    <div key={row.key} className="p-3 rounded-xl border">
-                                        <div className="flex justify-between text-sm mb-1">
-                                            <div className="font-medium">{row.key}</div>
-                                            <div className="text-gray-600">
-                                                {currency(row.spent)} / {currency(row.budget)} ({Math.round(row.pct)}%)
-                                            </div>
-                                        </div>
-
-                                        {Number(row.budget) > 0 ? (
-                                            <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
-                                                <div
-                                                    className={`h-full ${row.spent > row.budget ? "bg-red-600" : "bg-blue-600"}`}
-                                                    style={{ width: `${row.pct}%` }}
-                                                />
-                                            </div>
-                                        ) : 
-                                            <div className="h-2 w-full" /> 
-                                        }
-
-                                        <div className="text-xs text-gray-500 mt-1">
-                                            Remaining: {currency(row.remaining)}
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-
-                    {/* ---------------------- */}
-                    {/* Pie Chart Drilldown */}
+                    {/* Mode Toggle */}
                     {/* ---------------------- */}
                     <div className="bg-white border rounded-2xl p-4">
-                        <div className="font-semibold mb-2">Spending Breakdown</div>
+                        <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                            <div>
+                                <div className="text-lg font-semibold">Dashboard</div>
+                            </div>
 
-                        {/* Breadcrumbs */}
-                        <div className="flex items-center gap-1 text-sm text-gray-600 mb-3">
-                            {breadcrumbs.map((c, i) => (
-                                <div
-                                    key={i}
-                                    className="flex items-center cursor-pointer hover:underline"
-                                    onClick={() => goToBreadcrumb(i)}
+                            <div className="grid grid-cols-2 gap-2 w-full sm:w-auto">
+                                <button
+                                    className={`px-6 py-3 rounded-xl border text-sm font-semibold transition
+                    ${mode === "expenses" ? "bg-gray-900 text-white border-gray-900" : "bg-white text-gray-900 hover:bg-gray-50"}
+                  `}
+                                    onClick={() => setMode("expenses")}
                                 >
-                                    {i > 0 && <span className="mx-1">&gt;</span>}
-                                    {c.label}
-                                </div>
-                            ))}
-                        </div>
+                                    Expenses
+                                </button>
 
-                        {/* Pie */}
-                        <div className="h-64">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={pieData}
-                                        dataKey="value"
-                                        nameKey="name"
-                                        outerRadius={100}
-                                        onClick={onSliceClick}
-                                    >
-                                    {pieData.map((slice, idx) => (
-                                        <Cell
-                                            key={slice.id}
-                                            fill={slice.isOther ? "#9CA3AF" : COLORS[idx % COLORS.length]} // 👈 Always gray for Other
-                                            cursor={slice.isOther ? "default" : "pointer"}
-                                            opacity={slice.isOther ? 0.7 : 1}
-                                        />
-                                    ))}
-                                    </Pie>
-                                    <Tooltip formatter={v => currency(Number(v))} />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        </div>
-
-                        <div className="text-xs text-gray-500 mt-2">
-                            Tip: click a slice to drill down.
+                                <button
+                                    className={`px-6 py-3 rounded-xl border text-sm font-semibold transition
+                    ${mode === "income" ? "bg-gray-900 text-white border-gray-900" : "bg-white text-gray-900 hover:bg-gray-50"}
+                  `}
+                                    onClick={() => setMode("income")}
+                                >
+                                    Income
+                                </button>
+                            </div>
                         </div>
                     </div>
 
+                    {/* ---------------------- */}
+                    {/* Main Grid */}
+                    {/* ---------------------- */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {/* ---------------------- */}
+                        {/* Budget Bars */}
+                        {/* ---------------------- */}
+                        <div className="bg-white border rounded-2xl p-4 lg:col-span-2">
+                            <div className="font-semibold mb-2">
+                                {mode === "expenses" ? "Monthly Budgets by Category" : "Income by Category"}
+                            </div>
+
+                            <div className="space-y-4">
+                                {!barsData.length ? (
+                                    <div>Loading...</div>
+                                ) : (
+                                    barsData.map((row) => (
+                                        <div key={row.key} className="p-3 rounded-xl border">
+                                            <div className="flex justify-between text-sm mb-1">
+                                                <div className="font-medium">{row.key}</div>
+                                                <div className="text-gray-600">
+                                                    {currency(row.spent)} / {currency(row.budget)} ({Math.round(row.pct)}%)
+                                                </div>
+                                            </div>
+
+                                            {Number(row.budget) > 0 ? (
+                                                <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+                                                    <div
+                                                        className={`h-full ${row.spent > row.budget ? "bg-red-600" : "bg-blue-600"
+                                                            }`}
+                                                        style={{ width: `${row.pct}%` }}
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div className="h-2 w-full" />
+                                            )}
+
+                                            <div className="text-xs text-gray-500 mt-1">
+                                                Remaining: {currency(row.remaining)}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        {/* ---------------------- */}
+                        {/* Pie Chart Drilldown */}
+                        {/* ---------------------- */}
+                        <div className="bg-white border rounded-2xl p-4">
+                            <div className="font-semibold mb-2">
+                                {mode === "expenses" ? "Spending Breakdown" : "Income Breakdown"}
+                            </div>
+
+                            {/* Breadcrumbs */}
+                            <div className="flex items-center gap-1 text-sm text-gray-600 mb-3 flex-wrap">
+                                {breadcrumbs.map((c, i) => (
+                                    <div
+                                        key={i}
+                                        className="flex items-center cursor-pointer hover:underline"
+                                        onClick={() => goToBreadcrumb(i)}
+                                    >
+                                        {i > 0 && <span className="mx-1">&gt;</span>}
+                                        {c.label}
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Pie */}
+                            <div className="h-64">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={pieData}
+                                            dataKey="value"
+                                            nameKey="name"
+                                            outerRadius={100}
+                                            onClick={onSliceClick}
+                                        >
+                                            {pieData.map((slice, idx) => (
+                                                <Cell
+                                                    key={slice.id}
+                                                    fill={slice.isOther ? "#9CA3AF" : COLORS[idx % COLORS.length]}
+                                                    cursor={slice.isOther ? "default" : "pointer"}
+                                                    opacity={slice.isOther ? 0.7 : 1}
+                                                />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip formatter={(v) => currency(Number(v))} />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+
+                            <div className="text-xs text-gray-500 mt-2">
+                                Tip: click a slice to drill down.
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </>
-
     );
 }

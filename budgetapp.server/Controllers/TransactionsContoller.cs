@@ -30,13 +30,13 @@ namespace BudgetApp.Server.Controllers
         }
 
         [HttpPost("upload")]
-        public async Task<IActionResult> Upload([FromForm] IFormFile file)
+        public async Task<IActionResult> Upload([FromForm] IFormFile file, string userId)
         {
             Console.WriteLine("POST csvFile");
             if (file == null || file.Length == 0)
                 return BadRequest("No file uploaded.");
 
-            await _transactionEngine.ProcessCsvAsync(file);
+            await _transactionEngine.ProcessCsvAsync(file,userId);
             return Ok(new { message = "File processed." });
         }
     }
