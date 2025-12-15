@@ -25,5 +25,18 @@ namespace BudgetApp.Server.Accessors
             _context.Transactions.Add(transaction);
             _context.SaveChanges();
         }
+
+        public void UpdateTag(string userId, int transactionId, int? tagId)
+        {
+            var tx = _context.Transactions
+                .SingleOrDefault(t => t.UserId == userId && t.TransactionId == transactionId);
+
+            if (tx == null)
+                throw new InvalidOperationException($"Transaction {transactionId} not found for userId '{userId}'.");
+
+            tx.TagId = tagId;
+
+            _context.SaveChanges();
+        }
     }
 }

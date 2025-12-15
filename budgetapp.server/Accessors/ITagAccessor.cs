@@ -6,8 +6,10 @@ namespace BudgetApp.Server.Accessors
 {
     public interface ITagAccessor
     {
+        Tag? GetById(string userId, int tagId);
         List<Tag> GetAll(string userId);
         void Add(string userId, Tag tag);
+        void Update(Tag tag);
         //void ApplyTagUpdates(string userId, List<TagDto> tags);
     }
 }

@@ -40,5 +40,16 @@ namespace BudgetApp.Server.Controllers
             await _transactionEngine.ProcessCsvAsync(file,userId);
             return Ok(new { message = "File processed." });
         }
+
+        public record UpdateTransactionTagDto(int? TagId);
+
+        [HttpPatch("{transactionId:int}/tag")]
+        public IActionResult UpdateTag(int transactionId, string userId, [FromBody] UpdateTransactionTagDto dto)
+        {
+            Console.WriteLine($"PATCH Transaction {transactionId}");
+
+            _accessor.UpdateTag(userId, transactionId, dto.TagId);
+            return Ok();
+        }
     }
 }

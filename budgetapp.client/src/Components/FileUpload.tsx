@@ -3,6 +3,7 @@ import { ChangeEvent, useState, useEffect } from 'react';
 
 type UploadStatus = 'idle' | 'uploading' | 'success' | 'error';
 export function FileUploader() {
+    const USER_ID = localStorage.getItem("userId")!;
 
     const [isOpen, setIsOpen] = useState(false);
     const [file, setFile] = useState<File | null>(null);
@@ -25,7 +26,7 @@ export function FileUploader() {
         const formData = new FormData();
         formData.append("file", file);
 
-        const response = await fetch('/transactions/upload?userId=demo-user', {
+        const response = await fetch(`/transactions/upload?userId=${encodeURIComponent(USER_ID)}`, {
             method: "POST",
             body: formData,
             // Do NOT set Content-Type when sending FormData; the browser will set the multipart boundary for you.

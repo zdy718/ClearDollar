@@ -7,5 +7,6 @@ namespace BudgetApp.Server.Accessors
     {
         List<Transaction> GetAll(string userId);
         void Add(string userId, Transaction transaction);
+        void UpdateTag(string userId, int transactionId, int? tagId);
     }
 }

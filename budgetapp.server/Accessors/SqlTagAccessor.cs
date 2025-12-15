@@ -16,6 +16,11 @@ namespace BudgetApp.Server.Accessors
             _context = context;
         }
 
+        public Tag? GetById(string userId, int tagId)
+        {
+            return _context.Tags.FirstOrDefault(t => t.UserId == userId && t.TagId == tagId);
+        }
+
         public List<Tag> GetAll(string userId)
         {
             // Filter by the specific UserId provided in the request
@@ -27,6 +32,12 @@ namespace BudgetApp.Server.Accessors
             Console.WriteLine($"Adding tag for userId: {userId}");
             tag.UserId = userId; // Ensure the tag is assigned to the correct user
             _context.Tags.Add(tag);
+            _context.SaveChanges();
+        }
+
+        public void Update(Tag tag)
+        {
+            _context.Tags.Update(tag);
             _context.SaveChanges();
         }
 

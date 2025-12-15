@@ -177,8 +177,15 @@ const COLORS = [
 ----------------------------------------------------- */
 
 export function Dashboard() {
+    const USER_ID = localStorage.getItem("userId")!;
+
     const [tags, setTags] = useState();
     const [transactions, setTransactions] = useState();
+
+    const tagsLoading = tags === undefined;
+    const txLoading = transactions === undefined;
+    // "no data" = loaded transactions and there are none
+    const noTx = !txLoading && Array.isArray(transactions) && transactions.length === 0;
 
     // NEW: mode toggle (no net mode)
     const [mode, setMode] = useState("expenses"); // "expenses" | "income"
@@ -317,7 +324,7 @@ export function Dashboard() {
             });
         }
 
-        return items.filter((x) => Number(x.spent) > 0 || Number(x.budget) > 0);
+        return items;
     }, [tagTree, currentNode, directTotals, drillPath, untaggedTotal]);
 
     /** Click a pie slice → drill deeper */
@@ -342,9 +349,8 @@ export function Dashboard() {
     /* -----------------------------------------------------
        API
     ----------------------------------------------------- */
-
     async function populateTags() {
-        const response = await fetch("/tags?userId=demo-user");
+        const response = await fetch(`/tags?userId=${encodeURIComponent(USER_ID)}`);
         if (response.ok) {
             const data = await response.json();
             setTags(data);
@@ -352,7 +358,7 @@ export function Dashboard() {
     }
 
     async function populateTransactions() {
-        const response = await fetch("/transactions?userId=demo-user");
+        const response = await fetch(`/transactions?userId=${encodeURIComponent(USER_ID)}`);
         if (response.ok) {
             const data = await response.json();
             setTransactions(data);
@@ -376,6 +382,9 @@ export function Dashboard() {
                         <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
                             <div>
                                 <div className="text-lg font-semibold">Dashboard</div>
+                                <div className="text-sm text-gray-500">
+                                    See where your money is going.
+                                </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-2 w-full sm:w-auto">
@@ -413,8 +422,12 @@ export function Dashboard() {
                             </div>
 
                             <div className="space-y-4">
-                                {!barsData.length ? (
-                                    <div>Loading...</div>
+                                {txLoading || tagsLoading ? (
+                                    <div className="text-sm text-gray-500">Loading…</div>
+                                ) : noTx ? (
+                                    <div className="text-sm text-gray-500">No data</div>
+                                ) : barsData.length === 0 ? (
+                                    <div className="text-sm text-gray-500">No categories</div>
                                 ) : (
                                     barsData.map((row) => (
                                         <div key={row.key} className="p-3 rounded-xl border">
